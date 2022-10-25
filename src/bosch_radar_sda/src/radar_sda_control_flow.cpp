@@ -83,66 +83,66 @@ void RadarSdaControlFlow::SdaFlow(void){
         // Change Session to Extend Session
         SendChangeSession(_sensor_ID, _canInterface);
         SetSdaFlowStatus(changeExtendMode);
-        std::this_thread::sleep_for(std::chrono::milliseconds(10000));
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         if ((!CheckChangeSessionResponse(_errCode))){
             std::cout << "ERROE: SDA FAIL  "<<"timeout:"<<_timeoutCode<<"  "<<"errcode:"<<_errCode<<std::endl;
             // break;
         }
 
-        // Security Access1
-        SendSecurityAccess(_sensor_ID, _canInterface);
-        SetSdaFlowStatus(securityAccess);
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        if ((!CheckSecurityAccessResponse(_errCode))){
-            std::cout << "ERROE: SDA FAIL  "<<"timeout:"<<_timeoutCode<<"  "<<"errcode:"<<_errCode<<std::endl;
-            // break;
-        }
+        // // Security Access1
+        // SendSecurityAccess(_sensor_ID, _canInterface);
+        // SetSdaFlowStatus(securityAccess);
+        // std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        // if ((!CheckSecurityAccessResponse(_errCode))){
+        //     std::cout << "ERROE: SDA FAIL  "<<"timeout:"<<_timeoutCode<<"  "<<"errcode:"<<_errCode<<std::endl;
+        //     // break;
+        // }
 
-        // Security Access2
-        SendSecurityAccess2(_sensor_ID, _canInterface);
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        if ((!CheckSecurityAccessResponse2(_errCode))){
-            std::cout << "ERROE: SDA FAIL  "<<"timeout:"<<_timeoutCode<<"  "<<"errcode:"<<_errCode<<std::endl;
-            // break;
-        }
+        // // Security Access2
+        // SendSecurityAccess2(_sensor_ID, _canInterface);
+        // std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        // if ((!CheckSecurityAccessResponse2(_errCode))){
+        //     std::cout << "ERROE: SDA FAIL  "<<"timeout:"<<_timeoutCode<<"  "<<"errcode:"<<_errCode<<std::endl;
+        //     // break;
+        // }
 
-        //Keep Tester Present
-        SendTesterPresent(_sensor_ID, _canInterface);
-        SetSdaFlowStatus(testerPresent);
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        if ((!CheckTesterPresent(_errCode))){
-            std::cout << "ERROE: SDA FAIL  "<<"timeout:"<<_timeoutCode<<"  "<<"errcode:"<<_errCode<<std::endl;
-            // break;
-        }
+        // //Keep Tester Present
+        // SendTesterPresent(_sensor_ID, _canInterface);
+        // SetSdaFlowStatus(testerPresent);
+        // std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        // if ((!CheckTesterPresent(_errCode))){
+        //     std::cout << "ERROE: SDA FAIL  "<<"timeout:"<<_timeoutCode<<"  "<<"errcode:"<<_errCode<<std::endl;
+        //     // break;
+        // }
 
-        //Start SDA
-        StartRounteSda(_sensor_ID, _canInterface);
-        SetSdaFlowStatus(startSda);
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        if ((!CheckStartRounteSda(_errCode))){
-            std::cout << "ERROE: SDA FAIL  "<<"timeout:"<<_timeoutCode<<"  "<<"errcode:"<<_errCode<<std::endl;
-            // break;
-        }
+        // //Start SDA
+        // StartRounteSda(_sensor_ID, _canInterface);
+        // SetSdaFlowStatus(startSda);
+        // std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        // if ((!CheckStartRounteSda(_errCode))){
+        //     std::cout << "ERROE: SDA FAIL  "<<"timeout:"<<_timeoutCode<<"  "<<"errcode:"<<_errCode<<std::endl;
+        //     // break;
+        // }
 
-         //Read SDA
-        ReadRounteSda(_sensor_ID, _canInterface);
-        SetSdaFlowStatus(sdaStatus);
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        if ((!CheckReadRounteSda(_errCode))){
-            std::cout << "ERROE: SDA FAIL  "<<"timeout:"<<_timeoutCode<<"  "<<"errcode:"<<_errCode<<std::endl;
-            // break;
-        }
+        //  //Read SDA
+        // ReadRounteSda(_sensor_ID, _canInterface);
+        // SetSdaFlowStatus(sdaStatus);
+        // std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        // if ((!CheckReadRounteSda(_errCode))){
+        //     std::cout << "ERROE: SDA FAIL  "<<"timeout:"<<_timeoutCode<<"  "<<"errcode:"<<_errCode<<std::endl;
+        //     // break;
+        // }
 
-         //Stop SDA
-        StopRounteSda(_sensor_ID, _canInterface);
-        SetSdaFlowStatus(stopSda);
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        if ((!CheckStopRounteSda(_errCode))){
-            std::cout << "ERROE: SDA FAIL  "<<"timeout:"<<_timeoutCode<<"  "<<"errcode:"<<_errCode<<std::endl;
-            // break;
-        }
+        //  //Stop SDA
+        // StopRounteSda(_sensor_ID, _canInterface);
+        // SetSdaFlowStatus(stopSda);
+        // std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        // if ((!CheckStopRounteSda(_errCode))){
+        //     std::cout << "ERROE: SDA FAIL  "<<"timeout:"<<_timeoutCode<<"  "<<"errcode:"<<_errCode<<std::endl;
+        //     // break;
+        // }
 
-        SetSdaFlowStatus(finish);
+        // SetSdaFlowStatus(finish);
 
     }
     std::cout<<"SDA FINISH!"<<std::endl;
@@ -186,6 +186,15 @@ bool RadarSdaControlFlow::CheckChangeSessionResponse(errType ec){
     return true;
 }
 
+bool RadarSdaControlFlow::CheckChangeSessionResponse(CANFDArray data){
+    if ((data[1] != (_ActiveResponse + _ChangeSession_DID)) || (data[2] != _ExtendSession)){
+        _errCode = responseErr;
+        return false;
+    }
+    std::cout<<"CHANGE SESSION SUCCESS!"<<std::endl;
+    return true;
+}
+
 void RadarSdaControlFlow::SendSecurityAccess(SensorType sensor_id, drive::common::CanInterface& can)
 {
     command_result.clear();
@@ -212,6 +221,18 @@ bool RadarSdaControlFlow::CheckSecurityAccessResponse(errType ec){
         return false;
     }
     _canFdBuffer.clear();
+    std::cout<<"SECURITY ACCESS SUCCESS!"<<std::endl;
+    return true;
+}
+
+bool RadarSdaControlFlow::CheckSecurityAccessResponse(CANFDArray data){
+    if ((data[1] != (_ActiveResponse + _SecurityAccess_DID)) || (data[2] != _SecurityAccessLever1)){
+        _errCode = responseErr;
+        for(int i=0; i<8; i++){
+            std::cout<<std::hex<<(data[i] & 0xff)<<"    ";
+        }
+        return false;
+    }
     std::cout<<"SECURITY ACCESS SUCCESS!"<<std::endl;
     return true;
 }

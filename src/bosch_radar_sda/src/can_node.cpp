@@ -23,7 +23,12 @@ CanNode::CanNode()
 void CanNode::Run() {
     can0_.StartCanFdComm();
     LOG(INFO) << "BoschRadar SDA started...";
-    _radar_sda_flow.StartSdaFlow();
+    // _radar_sda_flow.StartSdaFlow();
+    {
+        _radar_sda_flow.SendChangeSession(SideRadar_Left, can0_);
+        _radar_sda_flow.SetSdaFlowStatus(changeExtendMode);
+         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    }
     ros::spin();
     can0_.Stop();
     LOG(INFO) << "BoschRadar SDA stopped...";
@@ -102,6 +107,8 @@ void CanNode::RegisterSdaCanFDMsgHandler() {
     });
 }
 
+
+
 void CanNode::HandleCanFDSdaMsg(const int result,
                            const drive::common::can::MessageID& msg_id,
                            const drive::common::can::CANFDArray& data) {
@@ -109,11 +116,42 @@ void CanNode::HandleCanFDSdaMsg(const int result,
         return;
     }
     if ((msg_id  == _radar_sda_flow.GetRadarSdaPar_leftresid()) && (_radar_sda_flow.GetSensorID() == SideRadar_Left)){
-        _radar_sda_flow.SetSdaRspBuffer(data);
+        std::cout<< "INFO: RADAR SDA FLOW IS "<<_radar_sda_flow.GetSdaFlowStatus()<<std::endl;
+        for(int i=0; i<8; i++){
+            std::cout<<std::hex<<(data[i] & 0xff)<<"    ";
+        }
+        std::cout<<std::endl;
+        switch(_radar_sda_flow.GetSdaFlowStatus()){
+            case changeExtendMode:
+                if ((!_radar_sda_flow.CheckChangeSessionResponse(data))){
+                    std::cout << "ERROE: SDA FAIL: change session  "<<std::endl;
+                }else{
+                    _radar_sda_flow.SendSecurityAccess(SideRadar_Left, can0_);
+                    _radar_sda_flow.SetSdaFlowStatus(securityAccess1);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                }
+                break;
+            case securityAccess1:
+                if ((!_radar_sda_flow.CheckSecurityAccessResponse(data))){
+                    std::cout << "ERROE: SDA FAIL: security access  "<<std::endl;
+                }else{
+                }
+            case testerPresent:
+            case startSda:
+            case sdaStatus:
+            case stopSda:
+            default:
+                break;
+        }
+        
+        
     }
-    if ((msg_id  == _radar_sda_flow.GetRadarSdaPar_rightesid()) && _radar_sda_flow.GetSensorID() == SideRadar_Right){
-        _radar_sda_flow.SetSdaRspBuffer(data);
-    }
+    // if ((msg_id  == _radar_sda_flow.GetRadarSdaPar_leftresid()) && (_radar_sda_flow.GetSensorID() == SideRadar_Left)){
+    //     _radar_sda_flow.SetSdaRspBuffer(data);
+    // }
+    // if ((msg_id  == _radar_sda_flow.GetRadarSdaPar_rightesid()) && _radar_sda_flow.GetSensorID() == SideRadar_Right){
+    //     _radar_sda_flow.SetSdaRspBuffer(data);
+    // }
 }
 
 bool CanNode::IsFrameAvailable(const drive::common::can::CANFDArray& data) {

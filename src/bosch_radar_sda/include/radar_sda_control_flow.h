@@ -15,7 +15,7 @@ namespace radar {
 enum SensorType {SideRadar_Left, SideRadar_Right};
 enum errType {noErr, flowErr, responseErr};
 enum timeoutType{noTimeout, changeExtendModeTimeout, securityAccessTimeout, startSdaTimeout, sdaStatusTimeout, stopSdaTimeout, testerPresentTimeout};
-enum flowStatusType{fail, init, changeExtendMode, securityAccess, testerPresent, startSda, sdaStatus, stopSda, finish};
+enum flowStatusType{fail, init, changeExtendMode, securityAccess1, securityAccess2, testerPresent, startSda, sdaStatus, stopSda, finish};
 
 
 
@@ -61,9 +61,13 @@ class RadarSdaControlFlow{
 
         bool CheckChangeSessionResponse(errType ec);
 
+        bool CheckChangeSessionResponse(CANFDArray data);
+
         void SendSecurityAccess(SensorType sensor_id, drive::common::CanInterface& can);
 
         bool CheckSecurityAccessResponse(errType ec);
+
+        bool CheckSecurityAccessResponse(CANFDArray data);
 
         void SendSecurityAccess2(SensorType sensor_id, drive::common::CanInterface& can);
 
