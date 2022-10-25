@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+
+<launch>
+    <arg name="can_conn_type0" default="UDP" />
+    <arg name="udp_send_address" default="$(optenv RADAR_UDP_SEND_ADDRESS 10.42.0.146)" />
+    <arg name="enable_pub_parsed_info" default="$(optenv SIDE_RADAR_ENABLE_PUB_PARSED_INFO true)"/>
+    <arg name="error_report_frequency" default="$(optenv SIDE_RADAR_ERROR_REPORT_FREQUENCY 5)"/>
+
+    <arg name="ifname0" default="can0" />
+    <arg name="extended_id" default="false" />
+    <arg name="bosch_0_frame_id" default="/side_left_radar" />
+    <arg name="bosch_1_frame_id" default="/side_right_radar" />
+    <arg name="sensor_id0" default="4" />
+    <arg name="sensor_id1" default="2" />
+
+    <arg name="respawn" default="$(optenv RESPAWN true)" />
+
+    <group ns="side_radar">
+        <node name="bosch_radar_sda_can_node" pkg="bosch_radar_sda" type="bosch_radar_sda_node" cwd="node" output="screen" respawn="$(arg respawn)">
+            <param name="watchdog_report_topic" value="/side_radars/status_report"/>
+            <param name="enable_pub_parsed_info" value="$(arg enable_pub_parsed_info)" />
+            <param name="error_report_frequency" value="$(arg error_report_frequency)" />
+            <param name="ifname0" value="can0" />
+            <param name="max_radar_num" value="2" />
+            <param name="sensor_frame_id0" value="$(arg bosch_0_frame_id)"/>
+            <param name="sensor_id0" value="$(arg sensor_id0)"/>
+            <param name="sensor_frame_id1" value="$(arg bosch_1_frame_id)"/>
+            <param name="sensor_id1" value="$(arg sensor_id1)"/>
+    
+            <param name="can_conn_type0" value="$(arg can_conn_type0)" />
+            <param name="extended_id" value="$(arg extended_id)" />
+            <param name="udp_send_address0" value="$(arg udp_send_address)"/>
+            <param name="udp_recv_port0" value="53021"/>
+            <param name="udp_send_port0" value="53023"/>
+	    <param name="ros_imu_topic_name" value="/imu/data"/>
+	    <param name="ros_dbw_topic_name" value="/vehicle/dbw_reports"/>
+	    <param name="ros_subscriber_queue_length" value="10"/>
+        </node>
+    </group>
+</launch>
