@@ -23,7 +23,6 @@ CanNode::CanNode()
 void CanNode::Run() {
     can0_.StartCanFdComm();
     LOG(INFO) << "BoschRadar SDA started...";
-    // _radar_sda_flow.StartSdaFlow();
     {
         _radar_sda_flow.SendChangeSession(SideRadar_Left, can0_);
         _radar_sda_flow.SetSdaFlowStatus(changeExtendMode);
@@ -107,8 +106,6 @@ void CanNode::RegisterSdaCanFDMsgHandler() {
     });
 }
 
-
-
 void CanNode::HandleCanFDSdaMsg(const int result,
                            const drive::common::can::MessageID& msg_id,
                            const drive::common::can::CANFDArray& data) {
@@ -142,18 +139,37 @@ void CanNode::HandleCanFDSdaMsg(const int result,
                 if ((!_radar_sda_flow.CheckSecurityAccessResponse2(data))){
                     std::cout << "ERROE: SDA FAIL: security access  "<<std::endl;
                 }else{
+                    _radar_sda_flow.StartRounteSda(SideRadar_Left, can0_);
                     _radar_sda_flow.SetSdaFlowStatus(startSda);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 }
                 break;
             case testerPresent:
             case startSda:
+                if ((!_radar_sda_flow.CheckStartRounteSda(data))){
+                    std::cout << "ERROE: SDA FAIL: start sda  "<<std::endl;
+                }else{
+                    _radar_sda_flow.ReadRounteSda(SideRadar_Left, can0_);
+                    _radar_sda_flow.SetSdaFlowStatus(sdaStatus);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                }
+                break;
             case sdaStatus:
+                if ((!_radar_sda_flow.GetReadRounteSdaStatus(data))){
+                    std::cout << "ERROE: SDA FAIL: read sda  "<<std::endl;
+                }
+                break;
             case stopSda:
+                if ((!_radar_sda_flow.CheckStopRounteSda(data))){
+                    std::cout << "ERROE: SDA FAIL: start sda  "<<std::endl;
+                }else{
+                    _radar_sda_flow.SetSdaFlowStatus(finish);
+                    can0_.Stop();
+                }
+                break;
             default:
                 break;
         }
-        
-        
     }
     // if ((msg_id  == _radar_sda_flow.GetRadarSdaPar_leftresid()) && (_radar_sda_flow.GetSensorID() == SideRadar_Left)){
     //     _radar_sda_flow.SetSdaRspBuffer(data);

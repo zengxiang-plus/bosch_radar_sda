@@ -37,15 +37,15 @@ void GenerateKeyEx(const SecurityFramArray& f_SeedArray, uint8_t f_SeedArrarySiz
     f_KeyArray[4] = static_cast<uint64_t>((l_key & 0x000000FF00000000) >> 32);
 }
 
-RadarSdaControlFlow::RadarSdaControlFlow(SensorType id, drive::common::CanInterface& canInterface):
+RadarSdaControlFlow::RadarSdaControlFlow(type_Sensor id, drive::common::CanInterface& canInterface):
     side_radar_func(0x7F2), side_radar_left_req(0x1F2), side_radar_right_req(0x3F2), side_radar_left_resp(0x569), side_radar_right_resp(0x56B),
     _ChangeSession_DID(0x10), _SecurityAccess_DID(0x27), _RouteControl_DID(0x31), _Test_DID(0x3E), 
-    _SecurityAccessLever1(0x01), _SecurityAccessLever2(0x02), _Security_SeedKey_BYTE_NUM(0x05),
+    _SecurityAccessLever1(0x01), _SecurityAccessLever2(0x02), _SDA_Status_Frame_BYTE_NUM(SDAStatusFrameNUM), _Count_BYTE_NUM(4),
     _StartRoute_SID(0x01), _ReadRoute_SID(0x03), _StopRoute_SID(0x02), 
-    _RadarSDA_H(0xF8), _RadarSDA_L(0x08), _ExtendSession(0x03), _SDA_Frame_BYTE_NUM(8), _ActiveResponse(0x40),
+    _RadarSDA_H(0xF0), _RadarSDA_L(0x08), _ExtendSession(0x03), _SDA_Frame_BYTE_NUM(8), _ActiveResponse(0x40),
     _ChangeSession_COMMAND_BYTE_NUM(2), _SecurityAccess_COMMAND_BYTE_NUM(2), 
     _StartRouteSDA_COMMAND_BYTE_NUM(4), _ReadRouteSDA_COMMAND_BYTE_NUM(4), 
-    _StopRouteSDA_COMMAND_BYTE_NUM(4), _TesterPresent_COMMAND_BYTE_NUM(4),
+    _StopRouteSDA_COMMAND_BYTE_NUM(4), _TesterPresent_COMMAND_BYTE_NUM(2),
     _errCode(noErr), _timeoutCode(noTimeout), _flowStatus(init),
     _sensor_ID(id),_canInterface(canInterface)
 {
@@ -55,6 +55,7 @@ RadarSdaControlFlow::RadarSdaControlFlow(SensorType id, drive::common::CanInterf
     ReadRouteSDA.resize(_SDA_Frame_BYTE_NUM);
     StopRouteSDA.resize(_SDA_Frame_BYTE_NUM);
     TesterPresent.resize(_SDA_Frame_BYTE_NUM);
+    ContinueFrame.resize(_SDA_Frame_BYTE_NUM);
 }
 
 void RadarSdaControlFlow::SetRadarSdaPar_funcid(drive::common::can::MessageID ID){
@@ -97,104 +98,17 @@ drive::common::can::MessageID RadarSdaControlFlow::GetRadarSdaPar_rightesid(void
     return side_radar_right_resp;
 }
 
-void RadarSdaControlFlow::SetSdaFlowStatus(flowStatusType status){
+void RadarSdaControlFlow::SetSdaFlowStatus(type_FlowStatus status){
     _flowStatus = status;
 }
 
-flowStatusType RadarSdaControlFlow::GetSdaFlowStatus(void){
+type_FlowStatus RadarSdaControlFlow::GetSdaFlowStatus(void){
     return _flowStatus;
 }
 
-bool RadarSdaControlFlow::StartSdaFlow(void){
-    _flowStatus = init;
-    _sda_flow_thread = std::thread(&RadarSdaControlFlow::SdaFlow, this);
-    return true;
-}
 
-void RadarSdaControlFlow::SdaFlow(void){
-    while(_flowStatus != fail && _errCode == noErr){
-        std::cout<< "buffer size"<<_canFdBuffer.size()<<std::endl;
-        // Change Session to Extend Session
-        SendChangeSession(_sensor_ID, _canInterface);
-        SetSdaFlowStatus(changeExtendMode);
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-        if ((!CheckChangeSessionResponse(_errCode))){
-            std::cout << "ERROE: SDA FAIL  "<<"timeout:"<<_timeoutCode<<"  "<<"errcode:"<<_errCode<<std::endl;
-            // break;
-        }
-
-        // // Security Access1
-        // SendSecurityAccess(_sensor_ID, _canInterface);
-        // SetSdaFlowStatus(securityAccess);
-        // std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        // if ((!CheckSecurityAccessResponse(_errCode))){
-        //     std::cout << "ERROE: SDA FAIL  "<<"timeout:"<<_timeoutCode<<"  "<<"errcode:"<<_errCode<<std::endl;
-        //     // break;
-        // }
-
-        // // Security Access2
-        // SendSecurityAccess2(_sensor_ID, _canInterface);
-        // std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        // if ((!CheckSecurityAccessResponse2(_errCode))){
-        //     std::cout << "ERROE: SDA FAIL  "<<"timeout:"<<_timeoutCode<<"  "<<"errcode:"<<_errCode<<std::endl;
-        //     // break;
-        // }
-
-        // //Keep Tester Present
-        // SendTesterPresent(_sensor_ID, _canInterface);
-        // SetSdaFlowStatus(testerPresent);
-        // std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        // if ((!CheckTesterPresent(_errCode))){
-        //     std::cout << "ERROE: SDA FAIL  "<<"timeout:"<<_timeoutCode<<"  "<<"errcode:"<<_errCode<<std::endl;
-        //     // break;
-        // }
-
-        // //Start SDA
-        // StartRounteSda(_sensor_ID, _canInterface);
-        // SetSdaFlowStatus(startSda);
-        // std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        // if ((!CheckStartRounteSda(_errCode))){
-        //     std::cout << "ERROE: SDA FAIL  "<<"timeout:"<<_timeoutCode<<"  "<<"errcode:"<<_errCode<<std::endl;
-        //     // break;
-        // }
-
-        //  //Read SDA
-        // ReadRounteSda(_sensor_ID, _canInterface);
-        // SetSdaFlowStatus(sdaStatus);
-        // std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        // if ((!CheckReadRounteSda(_errCode))){
-        //     std::cout << "ERROE: SDA FAIL  "<<"timeout:"<<_timeoutCode<<"  "<<"errcode:"<<_errCode<<std::endl;
-        //     // break;
-        // }
-
-        //  //Stop SDA
-        // StopRounteSda(_sensor_ID, _canInterface);
-        // SetSdaFlowStatus(stopSda);
-        // std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        // if ((!CheckStopRounteSda(_errCode))){
-        //     std::cout << "ERROE: SDA FAIL  "<<"timeout:"<<_timeoutCode<<"  "<<"errcode:"<<_errCode<<std::endl;
-        //     // break;
-        // }
-
-        // SetSdaFlowStatus(finish);
-
-    }
-    std::cout<<"SDA FINISH!"<<std::endl;
-}
-
-void RadarSdaControlFlow::SetSdaRspBuffer(CANFDArray data){
-    if (_flowStatus == sdaStatus && data.size() < 3){
-        _canFdBuffer.push_back(data);
-        return;
-    }
-    if (_canFdBuffer.size() == 0 ){
-        _canFdBuffer.push_back(data);
-        return;
-    }
-    _errCode = flowErr;
-}
-
-void RadarSdaControlFlow::SendChangeSession(SensorType sensor_id, drive::common::CanInterface& can)
+// Change Side Radar Mode to Extend Mode (Tx: 0x02 10 03 00 00 00 00 00     Active Response: 0x06 50 03 XX XX XX XX 55)
+void RadarSdaControlFlow::SendChangeSession(type_Sensor sensor_id, drive::common::CanInterface& can)
 {
     command_result.clear();
     ChangeSession[0] = _ChangeSession_COMMAND_BYTE_NUM;
@@ -202,22 +116,6 @@ void RadarSdaControlFlow::SendChangeSession(SensorType sensor_id, drive::common:
     ChangeSession[2] = _ExtendSession;
     command_result.emplace_back(side_radar_func, ChangeSession);
     can.WriteToCanFd(command_result);
-}
-
-bool RadarSdaControlFlow::CheckChangeSessionResponse(errType ec){
-    if(ec != noErr) return false;
-    if (_canFdBuffer.size() == 0){
-        _timeoutCode = changeExtendModeTimeout;
-        return false;
-    }
-    drive::common::can::CANFDArray data = _canFdBuffer[0];
-    if ((data[0] != (_ActiveResponse + _ChangeSession_DID)) || (data[1] != _ExtendSession)){
-        _errCode = responseErr;
-        return false;
-    }
-    _canFdBuffer.clear();
-    std::cout<<"CHANGE SESSION SUCCESS!"<<std::endl;
-    return true;
 }
 
 bool RadarSdaControlFlow::CheckChangeSessionResponse(CANFDArray data){
@@ -229,7 +127,9 @@ bool RadarSdaControlFlow::CheckChangeSessionResponse(CANFDArray data){
     return true;
 }
 
-void RadarSdaControlFlow::SendSecurityAccess(SensorType sensor_id, drive::common::CanInterface& can)
+//Security Access (Tx: 0x02 27 01 00 00 00 00 00    Active Response: 0x07 67 01 S1 S2 S3 S4 S5     
+//Calculate KEY K[1-5] By SEED S[1-5]      Tx 0x07 27 02 K1 K2 K3 K4 K5                Active Response:0x02 67 02 55 55 55 55 55)
+void RadarSdaControlFlow::SendSecurityAccess(type_Sensor sensor_id, drive::common::CanInterface& can)
 {
     command_result.clear();
     SecurityAccess[0] = _SecurityAccess_COMMAND_BYTE_NUM;
@@ -243,49 +143,30 @@ void RadarSdaControlFlow::SendSecurityAccess(SensorType sensor_id, drive::common
     can.WriteToCanFd(command_result);
 }
 
-bool RadarSdaControlFlow::CheckSecurityAccessResponse(errType ec){
-    if(ec != noErr) return false;
-    if (_canFdBuffer.size() == 0){
-        _timeoutCode = securityAccessTimeout;
-        return false;
-    }
-    drive::common::can::CANFDArray data = _canFdBuffer[0];
-    if ((data[0] != (_ActiveResponse + _SecurityAccess_DID)) || (data[1] != _SecurityAccessLever1)){
-        _errCode = responseErr;
-        return false;
-    }
-    _canFdBuffer.clear();
-    std::cout<<"SECURITY ACCESS SUCCESS!"<<std::endl;
-    return true;
-}
-
 bool RadarSdaControlFlow::CheckSecurityAccessResponse(CANFDArray data){
     SecurityFramArray g_SeedArray;
     SecurityFramArray g_KeyArray;
     if ((data[1] != (_ActiveResponse + _SecurityAccess_DID)) || (data[2] != _SecurityAccessLever1)){
         _errCode = responseErr;
-        for(int i=0; i<8; i++){
-            std::cout<<std::hex<<(data[i] & 0xff)<<"    ";
-        }
         return false;
     }
     std::cout<<"SECURITY ACCESS1 SUCCESS!"<<std::endl;
-    for(int i=0; i<_Security_SeedKey_BYTE_NUM; i++){
+    for(int i=0; i<SecuritySeedKeyNUM; i++){
         g_SeedArray[i] = static_cast<uint8_t>(data[i+3]); 
     }
-    GenerateKeyEx(g_SeedArray, _Security_SeedKey_BYTE_NUM, _SecurityAccessLever1, g_KeyArray);
+    GenerateKeyEx(g_SeedArray, SecuritySeedKeyNUM, _SecurityAccessLever1, g_KeyArray);
     SendSecurityAccess2(_sensor_ID, _canInterface, g_KeyArray);
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     return true;
 }
 
-void RadarSdaControlFlow::SendSecurityAccess2(SensorType sensor_id, drive::common::CanInterface& can, const SecurityFramArray& gKey)
+void RadarSdaControlFlow::SendSecurityAccess2(type_Sensor sensor_id, drive::common::CanInterface& can, const SecurityFramArray& gKey)
 {
     command_result.clear();
-    SecurityAccess[0] = _SecurityAccess_COMMAND_BYTE_NUM + _Security_SeedKey_BYTE_NUM;
+    SecurityAccess[0] = _SecurityAccess_COMMAND_BYTE_NUM + SecuritySeedKeyNUM;
     SecurityAccess[1] = _SecurityAccess_DID;
     SecurityAccess[2] = _SecurityAccessLever2;
-    for(int i=0; i<_Security_SeedKey_BYTE_NUM; i++)
+    for(int i=0; i<SecuritySeedKeyNUM; i++)
     {
         SecurityAccess[i+3] = gKey[i];
     }
@@ -297,35 +178,17 @@ void RadarSdaControlFlow::SendSecurityAccess2(SensorType sensor_id, drive::commo
     can.WriteToCanFd(command_result);
 }
 
-bool RadarSdaControlFlow::CheckSecurityAccessResponse2(errType ec){
-    if(ec != noErr) return false;
-    if (_canFdBuffer.size() == 0){
-        _timeoutCode = securityAccessTimeout;
-        return false;
-    }
-    drive::common::can::CANFDArray data = _canFdBuffer[0];
-    if ((data[0] != (_ActiveResponse + _SecurityAccess_DID)) || (data[1] != _SecurityAccessLever2)){
-        _errCode = responseErr;
-        return false;
-    }
-    _canFdBuffer.clear();
-    std::cout<<"SECURITY ACCESS2 SUCCESS!"<<std::endl;
-    return true;
-}
-
 bool RadarSdaControlFlow::CheckSecurityAccessResponse2(CANFDArray data){
     if ((data[1] != (_ActiveResponse + _SecurityAccess_DID)) || (data[2] != _SecurityAccessLever2)){
         _errCode = responseErr;
-        for(int i=0; i<8; i++){
-            std::cout<<std::hex<<(data[i] & 0xff)<<"    ";
-        }
         return false;
     }
     std::cout<<"SECURITY ACCESS2 SUCCESS!"<<std::endl;
     return true;
 }
 
-void RadarSdaControlFlow::StartRounteSda(SensorType sensor_id, drive::common::CanInterface& can)
+//Start SDA (Tx: 0x04 31 01 F0 08 00 00 00                Active Response:0x04 71 01 F0 08 55 55 55)
+void RadarSdaControlFlow::StartRounteSda(type_Sensor sensor_id, drive::common::CanInterface& can)
 {
     command_result.clear();
     StartRouteSDA[0] = _StartRouteSDA_COMMAND_BYTE_NUM;
@@ -341,23 +204,18 @@ void RadarSdaControlFlow::StartRounteSda(SensorType sensor_id, drive::common::Ca
     can.WriteToCanFd(command_result);
 }
 
-bool RadarSdaControlFlow::CheckStartRounteSda(errType ec){
-    if(ec != noErr) return false;
-    if (_canFdBuffer.size() == 0){
-        _timeoutCode = startSdaTimeout;
-        return false;
-    }
-    drive::common::can::CANFDArray data = _canFdBuffer[0];
-    if ((data[0] != (_ActiveResponse + _RouteControl_DID)) || (data[1] != _StartRoute_SID)){
+bool RadarSdaControlFlow::CheckStartRounteSda(CANFDArray data){
+    if ((data[1] != (_ActiveResponse + _RouteControl_DID)) || (data[2] != _StartRoute_SID)){
         _errCode = responseErr;
         return false;
     }
-    _canFdBuffer.clear();
-    std::cout<<"START ROUTE SDA SUCCESS!"<<std::endl;
+    std::cout<<"START SDA SUCCESS!"<<std::endl;
     return true;
 }
 
-void RadarSdaControlFlow::ReadRounteSda(SensorType sensor_id, drive::common::CanInterface& can)
+//Read SDA (Tx: 0x04 31 03 F0 08 00 00 00               Active Response:0x10 0B 71 03 F0 08 XX XX)
+// Send Continue Frame(Tx: 0x30 00 00 00 00 00 00 00)
+void RadarSdaControlFlow::ReadRounteSda(type_Sensor sensor_id, drive::common::CanInterface& can)
 {
     command_result.clear();
     ReadRouteSDA[0] = _ReadRouteSDA_COMMAND_BYTE_NUM;
@@ -373,23 +231,66 @@ void RadarSdaControlFlow::ReadRounteSda(SensorType sensor_id, drive::common::Can
     can.WriteToCanFd(command_result);
 }
 
-bool RadarSdaControlFlow::CheckReadRounteSda(errType ec){
-    if(ec != noErr) return false;
-    if (_canFdBuffer.size() == 0){
-        _timeoutCode = sdaStatusTimeout;
-        return false;
+void RadarSdaControlFlow::SendContinueFrame(type_Sensor sensor_id, drive::common::CanInterface& can){
+    command_result.clear();
+    ContinueFrame[0] = 0x30;
+    if(sensor_id == SideRadar_Left){
+        command_result.emplace_back(side_radar_left_req, ContinueFrame);
+    }else{
+        command_result.emplace_back(side_radar_right_req, ContinueFrame);
     }
-    drive::common::can::CANFDArray data = _canFdBuffer[0];
-    if ((data[0] != (_ActiveResponse + _RouteControl_DID)) || (data[1] != _ReadRoute_SID)){
-        _errCode = responseErr;
-        return false;
+    can.WriteToCanFd(command_result);
+}
+
+bool RadarSdaControlFlow::GetReadRounteSdaStatus(CANFDArray data){
+    if(_SDA_Status_Frame_BYTE_NUM == SDAStatusFrameNUM){
+        if ((data[2] != (_ActiveResponse + _RouteControl_DID)) || (data[3] != _ReadRoute_SID) || data[0] != 0x10 || data[1] != SDAStatusFrameNUM){
+            _errCode = responseErr;
+            return false;
+        }
+        SendContinueFrame(_sensor_ID, _canInterface);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        _Sda_Status.clear();
+        for(int i = 2; i < 8; i++){
+            _Sda_Status[i-2] = (data[i]);
+            _SDA_Status_Frame_BYTE_NUM--;
+        }
+        return true;
+    }else{
+        if (data[0] != 0x21){
+            _errCode = responseErr;
+            return false;
+        }
+        for(int i = 0; i < _SDA_Status_Frame_BYTE_NUM; i++){
+            _Sda_Status[SDAStatusFrameNUM - _SDA_Status_Frame_BYTE_NUM + i] = data[i+1];
+        }
+    } 
+    for(int i = 0; i < 11; i++){
+        std::cout<<(_Sda_Status[i] & 0xFF)<<"    ";
     }
-    _canFdBuffer.clear();
-    std::cout<<"Read ROUTE SDA SUCCESS!"<<std::endl;
+    std::cout<<std::endl;
+     _SDA_Status_Frame_BYTE_NUM = SDAStatusFrameNUM;
+     _Count_BYTE_NUM --;
+    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+   
+   if(_Count_BYTE_NUM){
+        SendTesterPresent(_sensor_ID, _canInterface);
+        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+        ReadRounteSda(_sensor_ID, _canInterface);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        return true;
+   }
+
+    StopRounteSda(_sensor_ID, _canInterface);
+    SetSdaFlowStatus(stopSda);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    std::cout<<"READ SDA SUCCESS!"<<std::endl;
     return true;
 }
 
-void RadarSdaControlFlow::StopRounteSda(SensorType sensor_id, drive::common::CanInterface& can)
+//Stop SDA(Tx: 0x04 31 02 F0 08 00 00 00)
+void RadarSdaControlFlow::StopRounteSda(type_Sensor sensor_id, drive::common::CanInterface& can)
 {
     command_result.clear();
     StopRouteSDA[0] = _StopRouteSDA_COMMAND_BYTE_NUM;
@@ -405,49 +306,27 @@ void RadarSdaControlFlow::StopRounteSda(SensorType sensor_id, drive::common::Can
     can.WriteToCanFd(command_result);
 }
 
-bool RadarSdaControlFlow::CheckStopRounteSda(errType ec){
-    if(ec != noErr) return false;
-    if (_canFdBuffer.size() == 0){
-        _timeoutCode = stopSdaTimeout;
-        return false;
-    }
-    drive::common::can::CANFDArray data = _canFdBuffer[0];
-    if ((data[0] != (_ActiveResponse + _RouteControl_DID)) || (data[1] != _StopRoute_SID)){
+bool RadarSdaControlFlow::CheckStopRounteSda(CANFDArray data){
+    if ((data[1] != (_ActiveResponse + _RouteControl_DID)) || (data[2] != _StopRoute_SID)){
         _errCode = responseErr;
         return false;
     }
-    _canFdBuffer.clear();
-    std::cout<<"Read ROUTE SDA SUCCESS!"<<std::endl;
+    std::cout<<"STOP SDA SUCCESS!"<<std::endl;
     return true;
 }
 
-void RadarSdaControlFlow::SendTesterPresent(SensorType sensor_id, drive::common::CanInterface& can)
+void RadarSdaControlFlow::SendTesterPresent(type_Sensor sensor_id, drive::common::CanInterface& can)
 {
     command_result.clear();
     TesterPresent[0] = _TesterPresent_COMMAND_BYTE_NUM;
     TesterPresent[1] = _Test_DID;
+    TesterPresent[2] = 0x80;
     if(sensor_id == SideRadar_Left){
         command_result.emplace_back(side_radar_left_req, TesterPresent);
     }else{
         command_result.emplace_back(side_radar_right_req, TesterPresent);
     }
     can.WriteToCanFd(command_result);
-}
-
-bool RadarSdaControlFlow::CheckTesterPresent(errType ec){
-    if(ec != noErr) return false;
-    if (_canFdBuffer.size() == 0){
-        _timeoutCode = testerPresentTimeout;
-        return false;
-    }
-    drive::common::can::CANFDArray data = _canFdBuffer[0];
-    if ((data[0] != (_ActiveResponse + _Test_DID))){
-        _errCode = responseErr;
-        return false;
-    }
-    _canFdBuffer.clear();
-    std::cout<<"TESTPRESENT SDA SUCCESS!"<<std::endl;
-    return true;
 }
 
 }

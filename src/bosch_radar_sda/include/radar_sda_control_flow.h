@@ -11,27 +11,30 @@
 namespace driver {
 namespace radar {
 
-enum SensorType {SideRadar_Left, SideRadar_Right};
-enum errType {noErr, flowErr, responseErr};
-enum timeoutType{noTimeout, changeExtendModeTimeout, securityAccessTimeout, startSdaTimeout, sdaStatusTimeout, stopSdaTimeout, testerPresentTimeout};
-enum flowStatusType{fail, init, changeExtendMode, securityAccess1, securityAccess2, testerPresent, startSda, sdaStatus, stopSda, finish};
+const  drive::common::can::Byte SecuritySeedKeyNUM = 5;
+const  drive::common::can::Byte SDAStatusFrameNUM = 11;
+
+enum type_Sensor {SideRadar_Left, SideRadar_Right};
+enum type_Err {noErr, flowErr, responseErr};
+enum type_Timeout{noTimeout, changeExtendModeTimeout, securityAccessTimeout, startSdaTimeout, sdaStatusTimeout, stopSdaTimeout, testerPresentTimeout};
+enum type_FlowStatus{fail, init, changeExtendMode, securityAccess1, securityAccess2, testerPresent, startSda, sdaStatus, stopSda, finish};
 
 using CANFDArray = drive::common::can::CANFDArray;
 using CANFDElement = std::pair<const drive::common::can::MessageID, CANFDArray>;
-using CANFDDataArray = boost::container::static_vector<CANFDArray, 3>;
-using SecurityFramArray = boost::container::static_vector<uint8_t, 5>;
+using SecurityFramArray = boost::container::static_vector<uint8_t, SecuritySeedKeyNUM>;
+using SDAStatusArray = boost::container::static_vector<drive::common::can::Byte, SDAStatusFrameNUM>;
 
 void GenerateKeyEx(const uint8_t *f_SeedArray, uint8_t f_SeedArrarySize, const uint8_t f_SecurityLevel, uint8_t *f_KeyArray);
 
 class RadarSdaControlFlow{
     public:
         RadarSdaControlFlow() = default;
-        RadarSdaControlFlow(SensorType id, drive::common::CanInterface& canInterface);
+        RadarSdaControlFlow(type_Sensor id, drive::common::CanInterface& canInterface);
         RadarSdaControlFlow(const RadarSdaControlFlow&) = delete;
         RadarSdaControlFlow& operator=(const RadarSdaControlFlow&) = delete;
         ~RadarSdaControlFlow() = default;
 
-        SensorType GetSensorID(void){ return _sensor_ID;}
+        type_Sensor GetSensorID(void){ return _sensor_ID;}
 
         void SetRadarSdaPar_funcid(drive::common::can::MessageID ID);
         drive::common::can::MessageID GetRadarSdaPar_funcid(void);
@@ -48,53 +51,50 @@ class RadarSdaControlFlow{
         void SetRadarSdaPar_rightesid(drive::common::can::MessageID ID);
         drive::common::can::MessageID GetRadarSdaPar_rightesid(void);
 
-        void SetSdaFlowStatus(flowStatusType status);
-        flowStatusType GetSdaFlowStatus(void);
+        void SetSdaFlowStatus(type_FlowStatus status);
+        type_FlowStatus GetSdaFlowStatus(void);
 
-        bool StartSdaFlow(void);
-
-        void SdaFlow(void);
-
-        void SetSdaRspBuffer(CANFDArray data);
-
-        void SendChangeSession(SensorType sensor_id, drive::common::CanInterface& can);
-
-        bool CheckChangeSessionResponse(errType ec);
+        void SendChangeSession(type_Sensor sensor_id, drive::common::CanInterface& can);
 
         bool CheckChangeSessionResponse(CANFDArray data);
 
-        void SendSecurityAccess(SensorType sensor_id, drive::common::CanInterface& can);
-
-        bool CheckSecurityAccessResponse(errType ec);
+        void SendSecurityAccess(type_Sensor sensor_id, drive::common::CanInterface& can);
 
         bool CheckSecurityAccessResponse(CANFDArray data);
 
-        void SendSecurityAccess2(SensorType sensor_id, drive::common::CanInterface& can,  const SecurityFramArray& gKey);
-
-        bool CheckSecurityAccessResponse2(errType ec);
+        void SendSecurityAccess2(type_Sensor sensor_id, drive::common::CanInterface& can,  const SecurityFramArray& gKey);
 
         bool CheckSecurityAccessResponse2(CANFDArray data);
 
-        void StartRounteSda(SensorType sensor_id, drive::common::CanInterface& can);
+        void StartRounteSda(type_Sensor sensor_id, drive::common::CanInterface& can);
 
-        bool CheckStartRounteSda(errType ec);
+        bool CheckStartRounteSda(CANFDArray data);
 
-        void ReadRounteSda(SensorType sensor_id, drive::common::CanInterface& can);
+        void ReadRounteSda(type_Sensor sensor_id, drive::common::CanInterface& can);
 
-        bool CheckReadRounteSda(errType ec);
+        void SendContinueFrame(type_Sensor sensor_id, drive::common::CanInterface& can);
 
-        void StopRounteSda(SensorType sensor_id, drive::common::CanInterface& can);
+        bool GetReadRounteSdaStatus(CANFDArray data);
 
-        bool CheckStopRounteSda(errType ec);
+        void StopRounteSda(type_Sensor sensor_id, drive::common::CanInterface& can);
 
-         void SendTesterPresent(SensorType sensor_id, drive::common::CanInterface& can);
+        bool CheckStopRounteSda(CANFDArray data);
 
-        bool CheckTesterPresent(errType ec);
+         void SendTesterPresent(type_Sensor sensor_id, drive::common::CanInterface& can);
 
         
     private:
 
+        type_Sensor _sensor_ID;
+        type_Err  _errCode;
+        type_Timeout _timeoutCode;
+        type_FlowStatus _flowStatus;
+        
+        SDAStatusArray _Sda_Status;
+
         std::vector<CANFDElement> command_result;
+
+        drive::common::CanInterface& _canInterface;
 
         drive::common::can::MessageID side_radar_left_req;
         drive::common::can::MessageID side_radar_right_req;
@@ -122,7 +122,7 @@ class RadarSdaControlFlow{
         drive::common::can::CANFDArray ReadRouteSDA;
         drive::common::can::CANFDArray StopRouteSDA;
         drive::common::can::CANFDArray TesterPresent;
-        
+        drive::common::can::CANFDArray ContinueFrame;       
 
         const  drive::common::can::Byte _ChangeSession_COMMAND_BYTE_NUM;
         const  drive::common::can::Byte _SecurityAccess_COMMAND_BYTE_NUM;
@@ -131,15 +131,9 @@ class RadarSdaControlFlow{
         const  drive::common::can::Byte _StopRouteSDA_COMMAND_BYTE_NUM;
         const  drive::common::can::Byte _TesterPresent_COMMAND_BYTE_NUM;
         const  drive::common::can::Byte _SDA_Frame_BYTE_NUM;
-        const  drive::common::can::Byte _Security_SeedKey_BYTE_NUM;
 
-        std::thread _sda_flow_thread; 
-        SensorType _sensor_ID;
-        errType  _errCode;
-        timeoutType _timeoutCode;
-        flowStatusType _flowStatus;
-        drive::common::CanInterface& _canInterface;
-        CANFDDataArray _canFdBuffer;
+        drive::common::can::Byte _SDA_Status_Frame_BYTE_NUM;
+        drive::common::can::Byte _Count_BYTE_NUM;
 };
 
 }
