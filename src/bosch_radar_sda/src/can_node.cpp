@@ -135,7 +135,16 @@ void CanNode::HandleCanFDSdaMsg(const int result,
                 if ((!_radar_sda_flow.CheckSecurityAccessResponse(data))){
                     std::cout << "ERROE: SDA FAIL: security access  "<<std::endl;
                 }else{
+                    _radar_sda_flow.SetSdaFlowStatus(securityAccess2);
                 }
+                break;
+            case securityAccess2:
+                if ((!_radar_sda_flow.CheckSecurityAccessResponse2(data))){
+                    std::cout << "ERROE: SDA FAIL: security access  "<<std::endl;
+                }else{
+                    _radar_sda_flow.SetSdaFlowStatus(startSda);
+                }
+                break;
             case testerPresent:
             case startSda:
             case sdaStatus:

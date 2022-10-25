@@ -3,10 +3,44 @@
 namespace driver {
 namespace radar {
 
+void GenerateKeyEx(const SecurityFramArray& f_SeedArray, uint8_t f_SeedArrarySize, const uint8_t f_SecurityLevel, SecurityFramArray& f_KeyArray)
+{
+    const uint64_t SEC_MASK = 0x0919931125;
+    const uint16_t l_Sec_Coe_a_L1 = 0x2528;
+    const uint16_t l_Sec_Coe_a_L2 = 0x2527;
+    const uint16_t l_Sec_Coe_c_L1 = 0x28;
+    const uint16_t l_Sec_Coe_c_L2 = 0x27;
+    uint64_t l_seed = 0;
+    uint64_t l_key = 0;
+    l_seed = ((static_cast<uint64_t>(f_SeedArray[0]) << 32) & 0x000000FF00000000);
+    l_seed = (l_seed | ((static_cast<uint64_t>(f_SeedArray[1]) << 24) & 0x00000000FF000000));
+    l_seed = (l_seed | ((static_cast<uint64_t>(f_SeedArray[2]) << 16) & 0x0000000000FF0000));
+    l_seed = (l_seed | ((static_cast<uint64_t>(f_SeedArray[3]) << 8) & 0x000000000000FF00));
+    l_seed = (l_seed | ((static_cast<uint64_t>(f_SeedArray[4]) & 0x00000000000000FF)));
+    if (f_SeedArrarySize == 5 &&  l_seed != 0 && l_seed != 0x000000FFFFFFFFFF){
+        switch (f_SecurityLevel)
+        {
+            case 0x01:
+                l_key = (l_Sec_Coe_a_L1 * (l_seed ^ SEC_MASK) + l_Sec_Coe_c_L1) % 0x0000010000000000;
+                break;
+            case 0x02:
+                l_key = (l_Sec_Coe_a_L2 * (l_seed ^ SEC_MASK) + l_Sec_Coe_c_L2) % 0x0000010000000000;
+                break;
+            default:
+                break;
+        }
+    }
+    f_KeyArray[0] = static_cast<uint64_t>(l_key & 0x00000000000000FF);
+    f_KeyArray[1] = static_cast<uint64_t>((l_key & 0x000000000000FF00) >> 8);
+    f_KeyArray[2] = static_cast<uint64_t>((l_key & 0x0000000000FF0000) >> 16);
+    f_KeyArray[3] = static_cast<uint64_t>((l_key & 0x00000000FF000000) >> 24);
+    f_KeyArray[4] = static_cast<uint64_t>((l_key & 0x000000FF00000000) >> 32);
+}
+
 RadarSdaControlFlow::RadarSdaControlFlow(SensorType id, drive::common::CanInterface& canInterface):
     side_radar_func(0x7F2), side_radar_left_req(0x1F2), side_radar_right_req(0x3F2), side_radar_left_resp(0x569), side_radar_right_resp(0x56B),
     _ChangeSession_DID(0x10), _SecurityAccess_DID(0x27), _RouteControl_DID(0x31), _Test_DID(0x3E), 
-    _SecurityAccessLever1(0x01), _SecurityAccessLever2(0x02),
+    _SecurityAccessLever1(0x01), _SecurityAccessLever2(0x02), _Security_SeedKey_BYTE_NUM(0x05),
     _StartRoute_SID(0x01), _ReadRoute_SID(0x03), _StopRoute_SID(0x02), 
     _RadarSDA_H(0xF8), _RadarSDA_L(0x08), _ExtendSession(0x03), _SDA_Frame_BYTE_NUM(8), _ActiveResponse(0x40),
     _ChangeSession_COMMAND_BYTE_NUM(2), _SecurityAccess_COMMAND_BYTE_NUM(2), 
@@ -226,6 +260,8 @@ bool RadarSdaControlFlow::CheckSecurityAccessResponse(errType ec){
 }
 
 bool RadarSdaControlFlow::CheckSecurityAccessResponse(CANFDArray data){
+    SecurityFramArray g_SeedArray;
+    SecurityFramArray g_KeyArray;
     if ((data[1] != (_ActiveResponse + _SecurityAccess_DID)) || (data[2] != _SecurityAccessLever1)){
         _errCode = responseErr;
         for(int i=0; i<8; i++){
@@ -233,16 +269,26 @@ bool RadarSdaControlFlow::CheckSecurityAccessResponse(CANFDArray data){
         }
         return false;
     }
-    std::cout<<"SECURITY ACCESS SUCCESS!"<<std::endl;
+    std::cout<<"SECURITY ACCESS1 SUCCESS!"<<std::endl;
+    for(int i=0; i<_Security_SeedKey_BYTE_NUM; i++){
+        g_SeedArray[i] = static_cast<uint8_t>(data[i+3]); 
+    }
+    GenerateKeyEx(g_SeedArray, _Security_SeedKey_BYTE_NUM, _SecurityAccessLever1, g_KeyArray);
+    SendSecurityAccess2(_sensor_ID, _canInterface, g_KeyArray);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
     return true;
 }
 
-void RadarSdaControlFlow::SendSecurityAccess2(SensorType sensor_id, drive::common::CanInterface& can)
+void RadarSdaControlFlow::SendSecurityAccess2(SensorType sensor_id, drive::common::CanInterface& can, const SecurityFramArray& gKey)
 {
     command_result.clear();
-    SecurityAccess[0] = _SecurityAccess_COMMAND_BYTE_NUM;
+    SecurityAccess[0] = _SecurityAccess_COMMAND_BYTE_NUM + _Security_SeedKey_BYTE_NUM;
     SecurityAccess[1] = _SecurityAccess_DID;
     SecurityAccess[2] = _SecurityAccessLever2;
+    for(int i=0; i<_Security_SeedKey_BYTE_NUM; i++)
+    {
+        SecurityAccess[i+3] = gKey[i];
+    }
     if(sensor_id == SideRadar_Left){
         command_result.emplace_back(side_radar_left_req, SecurityAccess);
     }else{
@@ -263,7 +309,19 @@ bool RadarSdaControlFlow::CheckSecurityAccessResponse2(errType ec){
         return false;
     }
     _canFdBuffer.clear();
-    std::cout<<"SECURITY ACCESS SUCCESS!"<<std::endl;
+    std::cout<<"SECURITY ACCESS2 SUCCESS!"<<std::endl;
+    return true;
+}
+
+bool RadarSdaControlFlow::CheckSecurityAccessResponse2(CANFDArray data){
+    if ((data[1] != (_ActiveResponse + _SecurityAccess_DID)) || (data[2] != _SecurityAccessLever2)){
+        _errCode = responseErr;
+        for(int i=0; i<8; i++){
+            std::cout<<std::hex<<(data[i] & 0xff)<<"    ";
+        }
+        return false;
+    }
+    std::cout<<"SECURITY ACCESS2 SUCCESS!"<<std::endl;
     return true;
 }
 

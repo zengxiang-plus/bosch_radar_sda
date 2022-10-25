@@ -8,7 +8,6 @@
 #include "control/dbw_reports.pb.h"
 #include "vehicle_info_handler.h"
 
-
 namespace driver {
 namespace radar {
 
@@ -17,11 +16,12 @@ enum errType {noErr, flowErr, responseErr};
 enum timeoutType{noTimeout, changeExtendModeTimeout, securityAccessTimeout, startSdaTimeout, sdaStatusTimeout, stopSdaTimeout, testerPresentTimeout};
 enum flowStatusType{fail, init, changeExtendMode, securityAccess1, securityAccess2, testerPresent, startSda, sdaStatus, stopSda, finish};
 
-
-
 using CANFDArray = drive::common::can::CANFDArray;
 using CANFDElement = std::pair<const drive::common::can::MessageID, CANFDArray>;
 using CANFDDataArray = boost::container::static_vector<CANFDArray, 3>;
+using SecurityFramArray = boost::container::static_vector<uint8_t, 5>;
+
+void GenerateKeyEx(const uint8_t *f_SeedArray, uint8_t f_SeedArrarySize, const uint8_t f_SecurityLevel, uint8_t *f_KeyArray);
 
 class RadarSdaControlFlow{
     public:
@@ -69,9 +69,11 @@ class RadarSdaControlFlow{
 
         bool CheckSecurityAccessResponse(CANFDArray data);
 
-        void SendSecurityAccess2(SensorType sensor_id, drive::common::CanInterface& can);
+        void SendSecurityAccess2(SensorType sensor_id, drive::common::CanInterface& can,  const SecurityFramArray& gKey);
 
         bool CheckSecurityAccessResponse2(errType ec);
+
+        bool CheckSecurityAccessResponse2(CANFDArray data);
 
         void StartRounteSda(SensorType sensor_id, drive::common::CanInterface& can);
 
@@ -129,6 +131,7 @@ class RadarSdaControlFlow{
         const  drive::common::can::Byte _StopRouteSDA_COMMAND_BYTE_NUM;
         const  drive::common::can::Byte _TesterPresent_COMMAND_BYTE_NUM;
         const  drive::common::can::Byte _SDA_Frame_BYTE_NUM;
+        const  drive::common::can::Byte _Security_SeedKey_BYTE_NUM;
 
         std::thread _sda_flow_thread; 
         SensorType _sensor_ID;
