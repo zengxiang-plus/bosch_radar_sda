@@ -106,6 +106,12 @@ type_FlowStatus RadarSdaControlFlow::GetSdaFlowStatus(void){
     return _flowStatus;
 }
 
+std::string RadarSdaControlFlow::PrintSdaFlowStatus(void){
+    return _SdaStatus[_flowStatus];
+}
+
+
+
 
 // Change Side Radar Mode to Extend Mode (Tx: 0x02 10 03 00 00 00 00 00     Active Response: 0x06 50 03 XX XX XX XX 55)
 void RadarSdaControlFlow::SendChangeSession(type_Sensor sensor_id, drive::common::CanInterface& can)
@@ -265,15 +271,10 @@ bool RadarSdaControlFlow::GetReadRounteSdaStatus(CANFDArray data){
             _Sda_Status[SDAStatusFrameNUM - _SDA_Status_Frame_BYTE_NUM + i] = data[i+1];
         }
     } 
-    for(int i = 0; i < 11; i++){
-        std::cout<<(_Sda_Status[i] & 0xFF)<<"    ";
-    }
-    std::cout<<std::endl;
-     _SDA_Status_Frame_BYTE_NUM = SDAStatusFrameNUM;
-     _Count_BYTE_NUM --;
-    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-   
-   if(_Count_BYTE_NUM){
+    
+    _sda_Process = AnySDAStatus();
+
+   if(_Count_BYTE_NUM && !_sda_Process){
         SendTesterPresent(_sensor_ID, _canInterface);
         std::this_thread::sleep_for(std::chrono::milliseconds(2000));
         ReadRounteSda(_sensor_ID, _canInterface);
@@ -281,12 +282,55 @@ bool RadarSdaControlFlow::GetReadRounteSdaStatus(CANFDArray data){
         return true;
    }
 
+if(_sda_Process){
     StopRounteSda(_sensor_ID, _canInterface);
     SetSdaFlowStatus(stopSda);
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
     std::cout<<"READ SDA SUCCESS!"<<std::endl;
     return true;
+}
+    return false;
+}
+
+bool RadarSdaControlFlow::AnySDAStatus(void){
+
+    std::cout << "PROCESS: Reading SDA Status"<<std::endl;
+    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+     _SDA_Status_Frame_BYTE_NUM = SDAStatusFrameNUM;
+     _Count_BYTE_NUM --;
+
+    drive::common::can::Byte X1 = _Sda_Status[4];
+    drive::common::can::Byte X2 = _Sda_Status[5];
+    drive::common::can::Byte X3 = _Sda_Status[6];
+    drive::common::can::Byte X4 = _Sda_Status[7];
+    drive::common::can::Byte X5 = _Sda_Status[8];
+    drive::common::can::Byte X6 = _Sda_Status[9];
+    drive::common::can::Byte X7 = _Sda_Status[10];
+
+    // Process Routine Status && Results
+    std::cout << "INFO: Routine Status is "<<_RoutineStatus[X1 & 0x0F] << std::endl;
+    std::cout << "INFO: Routine Result is "<<_RoutineResult[X1 & 0xF0] << std::endl;
+
+    //Process  Driving Profile
+    for (int i = 0; i < 6; i++){
+        if(X2 & (0x01 << i)){
+            std::cout << "INFO: Driving Profile is "<< _DrivingProfile[i] << std::endl;
+        }
+    }
+
+    //SDA Process
+    std::cout << "INFO: SDA Process is "<< (X3 & 0xFF) << std::endl;
+    if ((X3 & 0xFF) == 100) return true;
+
+    //Horizontal Angle && Vertical Angle
+    uint16_t tmpHorizontal = (static_cast<uint16_t>(X4) << 8) + X5;
+    uint16_t tmpVertical = (static_cast<uint16_t>(X6) << 8) + X7;
+    _Horizontal_Angle = (static_cast<double>(tmpHorizontal)) * 0.01 -3;
+    _Vertical_Angle = (static_cast<double>(tmpVertical)) * 0.01 -3;
+    std::cout << "INFO: Horizontal Angle is "<< _Horizontal_Angle << std::endl;
+    std::cout << "INFO: Vertical Angle is "<< _Vertical_Angle << std::endl;
+
+    return false;
 }
 
 //Stop SDA(Tx: 0x04 31 02 F0 08 00 00 00)

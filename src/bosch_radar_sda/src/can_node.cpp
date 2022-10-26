@@ -113,11 +113,11 @@ void CanNode::HandleCanFDSdaMsg(const int result,
         return;
     }
     if ((msg_id  == _radar_sda_flow.GetRadarSdaPar_leftresid()) && (_radar_sda_flow.GetSensorID() == SideRadar_Left)){
-        std::cout<< "INFO: RADAR SDA FLOW IS "<<_radar_sda_flow.GetSdaFlowStatus()<<std::endl;
-        for(int i=0; i<8; i++){
-            std::cout<<std::hex<<(data[i] & 0xff)<<"    ";
-        }
-        std::cout<<std::endl;
+        std::cout<< "PROCESS: RADAR SDA FLOW IS "<<_radar_sda_flow.PrintSdaFlowStatus()<<std::endl;
+        // for(int i=0; i<8; i++){
+        //     std::cout<<std::hex<<(data[i] & 0xff)<<"    ";
+        // }
+        // std::cout<<std::endl;
         switch(_radar_sda_flow.GetSdaFlowStatus()){
             case changeExtendMode:
                 if ((!_radar_sda_flow.CheckChangeSessionResponse(data))){

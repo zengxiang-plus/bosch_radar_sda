@@ -23,6 +23,7 @@ using CANFDArray = drive::common::can::CANFDArray;
 using CANFDElement = std::pair<const drive::common::can::MessageID, CANFDArray>;
 using SecurityFramArray = boost::container::static_vector<uint8_t, SecuritySeedKeyNUM>;
 using SDAStatusArray = boost::container::static_vector<drive::common::can::Byte, SDAStatusFrameNUM>;
+using SDAResponseStatus = boost::container::static_vector<std::string, 10>;
 
 void GenerateKeyEx(const uint8_t *f_SeedArray, uint8_t f_SeedArrarySize, const uint8_t f_SecurityLevel, uint8_t *f_KeyArray);
 
@@ -53,6 +54,7 @@ class RadarSdaControlFlow{
 
         void SetSdaFlowStatus(type_FlowStatus status);
         type_FlowStatus GetSdaFlowStatus(void);
+        std::string PrintSdaFlowStatus(void);
 
         void SendChangeSession(type_Sensor sensor_id, drive::common::CanInterface& can);
 
@@ -76,6 +78,8 @@ class RadarSdaControlFlow{
 
         bool GetReadRounteSdaStatus(CANFDArray data);
 
+        bool AnySDAStatus(void);
+
         void StopRounteSda(type_Sensor sensor_id, drive::common::CanInterface& can);
 
         bool CheckStopRounteSda(CANFDArray data);
@@ -90,6 +94,7 @@ class RadarSdaControlFlow{
         type_Timeout _timeoutCode;
         type_FlowStatus _flowStatus;
         
+        bool _sda_Process;
         SDAStatusArray _Sda_Status;
 
         std::vector<CANFDElement> command_result;
@@ -134,6 +139,17 @@ class RadarSdaControlFlow{
 
         drive::common::can::Byte _SDA_Status_Frame_BYTE_NUM;
         drive::common::can::Byte _Count_BYTE_NUM;
+
+        SDAResponseStatus _RoutineStatus = {"Routine Inactive", "Routine Active", "Routine NVM Write not OK", "Routine Timeout",
+                                                                                      "Routine Finished Correctly", "Routine Aborted"};
+        SDAResponseStatus _RoutineResult = {"Alignment no Result Avaliable", "Alignement Incorrect Result", "Alignment correct Result"};
+        SDAResponseStatus _DrivingProfile = {"Velocity too Slow", "Velocity too Fast", "Yaw Rate too High", "Acceleration too High",
+                                                                                        "Location Number Insufficient", "Sensor is Blind"};
+        SDAResponseStatus _SdaStatus = {"fail", "init", "changeExtendMode", "securityAccess1", "securityAccess2", "testerPresent", 
+                                                                                "startSda", "sdaStatus", "stopSda", "finish"};
+                                                                                
+        double _Horizontal_Angle = 0;
+        double _Vertical_Angle = 0;
 };
 
 }
